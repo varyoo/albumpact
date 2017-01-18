@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"github.com/fatih/color"
@@ -12,13 +11,9 @@ import (
 	"github.com/varyoo/albumpact/release"
 	"github.com/varyoo/albumpact/stats"
 	"log"
-	"os"
 	"sort"
 	"strings"
 )
-
-var printSection func(string, ...interface{}) = color.New(color.Bold).PrintfFunc()
-var printTrack func(string, ...interface{}) = color.New(color.Bold, color.Italic).PrintfFunc()
 
 type byNumber []release.Track
 
@@ -70,6 +65,48 @@ func fixTag(tag meta.Tag, tags []*stats.StringTag) (string, error) {
 	}
 	return m[selected], nil
 }
+
+var noVal = color.New(color.Italic).SprintfFunc()
+
+type artist string
+type title string
+type date string
+
+func (a artist) String() string {
+	return valOrMsg(string(a), "Unknown artist")
+}
+func (a title) String() string {
+	return valOrMsg(string(a), "Untitled")
+}
+func (a date) String() string {
+	return valOrMsg(string(a), "Unknown date")
+}
+func valOrMsg(val, msg string) string {
+	if val == "" {
+		return noVal(msg)
+	} else {
+		return val
+	}
+}
+
+type track struct {
+	meta.Track
+}
+
+func (t track) String() string {
+	return fmt.Sprintf("%d. %s — %s", t.TrackNumber(), artist(t.Artist()), title(t.Title()))
+}
+
+type album struct {
+	meta.Album
+}
+
+func (a album) String() string {
+	return fmt.Sprintf("%s — %s (%s)", artist(a.AlbumArtist()), title(a.AlbumTitle()), date(a.Date()))
+}
+
+var bullet = color.New(color.FgBlue, color.Bold).SprintfFunc()
+
 func try() error {
 	var dest string
 	var list bool
@@ -90,31 +127,21 @@ func try() error {
 			return err
 		}
 	}
-	printSection("Album: %s\n", meta.AlbumString(r))
+	fmt.Println(bullet("==>"), album{r})
 	if err := r.FixAlbum(fixTag); err != nil {
 		return errors.Wrap(err, "album tag fix")
 	}
 	for _, t := range r.Tracks() {
-		printTrack("Track: %s\n", meta.TrackString(t))
+		fmt.Println(bullet("  ->"), track{t})
 		if err := r.FixTrack(t, fixTag); err != nil {
 			return errors.Wrapf(err, "track %d fix", t.TrackNumber())
 		}
 	}
 	if list {
-		printSection("Album Description\n")
 		trackList(r)
 		sourceList(sources)
 	}
 	return r.Pack(dest)
-}
-func yesNo() (bool, error) {
-	fmt.Printf("[y/N] ")
-	reader := bufio.NewReader(os.Stdin)
-	c, err := reader.ReadByte()
-	if err != nil {
-		return false, errors.Wrap(err, "input")
-	}
-	return c == []byte("Y")[0] || c == []byte("y")[0], nil
 }
 func main() {
 	if err := try(); err != nil {
