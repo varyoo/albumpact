@@ -98,14 +98,17 @@ func autoCorrect(r Release) {
 	}
 	r.Tags(at)
 }
-func stripchars(str, chr string) string {
+func Filename(name string) string {
 	return strings.Map(func(r rune) rune {
-		if strings.IndexRune(chr, r) < 0 {
-			return r
+		switch r {
+		case ':':
+			return '-'
 		}
-		return -1
-	}, str)
-}
-func Filename(s string) string {
-	return stripchars(s, "<>:\"/\\|?*/")
+
+		if strings.IndexRune(`<>:"/\\|?*/`, r) < 0 {
+			return r
+		} else {
+			return -1
+		}
+	}, name)
 }
